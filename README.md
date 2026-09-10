@@ -1,0 +1,163 @@
+# Blinkit Beauty Market-Analysis Dashboard
+
+Competitive-intelligence dashboard for **Skincare + Makeup on Blinkit**, tracking how
+**Innisfree** and its K-beauty competitors (Laneige, The Face Shop, Etude House, …) perform across
+Indian metro pincodes: availability, SKU-level pricing, best-seller proxies, brand classification
+(Local / Global / Korean) and week-over-week new listings / delistings.
+
+Stack: **Python · Playwright · DuckDB · Streamlit**, weekly refresh via **GitHub Actions**.
+
+---
+
+## How data collection works (read this first)
+
+Blinkit has no public API and its edge (Cloudflare) blocks plain HTTP clients — even `robots.txt`
+returns 403 to `curl`. What *does* work, and what this project does:
+
+1. Playwright drives a real headless Chromium, which passes the bot check.
+2. The scraper picks a delivery location through Blinkit's own UI (types the pincode, selects the
+   first suggestion). Blinkit geocodes it and assigns a store (`merchant_id`).
+3. From inside that page, the scraper replays the JSON endpoint the web app itself uses —
+   `POST /v1/layout/listing_widgets` — for every Skincare/Makeup sub-category, following
+   `pagination.next_url` until the collection is exhausted.
+
+Each product card yields: brand, product name, pack size, selling price, MRP, discount, stock
+(`inventory`), rating + rating count, Blinkit's product-type tag (e.g. "Tinted Sunscreen"),
+product id, and its **position in Blinkit's bestseller-sorted listing** — our best-seller proxy.
+Variants (other pack sizes) are captured as separate rows.
+
+**Caveats you should keep in mind**
+
+- This is scraping of a consumer site: it can break when Blinkit changes markup or endpoints, and
+  it sits in a ToS grey area. The scraper is polite (1 browser, sequential, randomised 1–6 s delays,
+  retries with backoff) but there is no guarantee of 100 % uptime or completeness. Every run
+  writes a per-pincode / per-subcategory log so gaps are visible in the dashboard's *Crawl health*.
+- Blinkit never exposes sales volume. "Best-seller" everywhere in the UI is a **proxy** built from
+  listing rank, rating count and pincode coverage, and is labelled as such.
+- Store assortment is hyper-local: the same pincode can map to different dark stores over time.
+  We record the resolved lat/lon/locality/merchant per crawl so you can audit this.
+
+---
+
+## Repo layout
+
+```
+config/
+  pincodes.yaml        # 24 metro pincodes (3–4 per city) — edit freely, enabled flags
+  categories.yaml      # Blinkit category IDs for Skin & Face (Skincare) and Beauty & Cosmetics (Makeup)
+  brands_seed.yaml     # focus brand + competitors, and known Korean / Global / Local brand lists
+scraper/
+  client.py            # Playwright session: set location, in-page fetch with retries, pagination
+  parse.py             # listing_widgets JSON -> flat rows
+  crawl.py             # pincode x subcategory orchestration + run log
+scrape.py              # CLI entrypoint
+db/
+  schema.sql           # listings (append-only snapshots), crawl_runs, brands, views
+  load.py              # parquet -> DuckDB, brands sync, rebuild
+  brands.py            # classification heuristics, brands.csv round-trip
+data/
+  snapshots/*.parquet  # one file per crawl run  (source of truth, committed)
+  brands.csv           # human-edited brand classification (committed)
+  blinkit_beauty.duckdb# derived cache, rebuilt from the above (committed for Streamlit Cloud)
+app/
+  Home.py              # Focus-brand scorecard + "what needs attention"
+  metrics.py           # the analysis layer — every metric defined exactly once
+  common.py            # read-only DB access, filters, chart house-style
+  pages/1_Market.py                # market structure, coverage heatmap, trend
+  pages/2_Products_and_Pricing.py  # SKU drill-down + price positioning
+  pages/3_Weekly_Changes.py        # week-over-week diff
+  pages/4_Data_and_Brands.py       # brand review queue + crawl health
+.github/workflows/weekly_scrape.yml
+```
+
+### How to read the numbers
+
+Three definitions do a lot of work, and all three are forced by how Blinkit's data is shaped:
+
+| Term | Definition | Why |
+|---|---|---|
+| **Shelf listing (card)** | one primary product card, pack-size variants excluded | 62% of scraped rows are variants; counting them flatters a brand selling one cream in five sizes |
+| **Share of shelf** | a brand's cards ÷ all cards in scope | the top 5 brands hold 58–75% of a sub-category, so *brand count* says almost nothing about who is winning |
+| **Availability** | in-stock ÷ **all** SKU rows, variants included | a card always renders an in-stock size, so card-level stock is a constant 100%; the real stock-outs hide behind the size picker |
+
+*Visibility* and *best-seller score* are proxies: Blinkit publishes no sales volume. They are built from
+position in Blinkit's own bestsellers-sorted listing — which does track demand (position correlates
+−0.43 with rating count) — plus rating volume and pincode coverage. The UI labels them as proxies everywhere.
+
+There is deliberately **no "in stock only" filter**: availability is a headline metric, and filtering
+the rows it is computed from would pin it at 100%.
+
+---
+
+## Local setup
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python -m playwright install chromium
+
+# Smoke test: one pincode, two sub-categories, three pages each
+python scrape.py --pincodes 400001 --groups sunscreen,11672 --max-pages 3
+
+# Full crawl (all enabled pincodes x sub-categories; ~2–3 h)
+python scrape.py
+
+# Dashboard
+streamlit run app/Home.py
+```
+
+Useful flags: `--pincodes 400001,110001`, `--groups sunscreen,"Lipstick & Gloss"`, `--headed`
+(watch the browser), `--no-load` (parquet only), `--max-pages N`.
+
+Rebuild the DuckDB file from all snapshots at any time: `python -m db.load --rebuild`.
+
+> **Don't run the dashboard during a local crawl.** DuckDB permits either one read-write process or
+> several read-only ones, so an open Streamlit app blocks the load step at the end of a crawl even
+> though the app opens the file read-only. If that happens the crawl is not lost — the parquet
+> snapshot is already written, and `scrape.py` tells you the exact command to finish the load.
+> On macOS, also run the crawl under `caffeinate -i` (or disable idle sleep): a sleeping laptop
+> pauses the browser mid-crawl and stretches a 3-hour run into an overnight one.
+
+---
+
+## Weekly refresh (GitHub Actions)
+
+`.github/workflows/weekly_scrape.yml` runs every Monday 03:30 UTC (09:00 IST), and can be
+triggered manually from the Actions tab with optional pincode/group subsets. It:
+
+1. installs Playwright + Chromium on an Ubuntu runner,
+2. runs `python scrape.py`,
+3. rebuilds `data/blinkit_beauty.duckdb`,
+4. commits the new parquet snapshot, run log, `brands.csv` and the DuckDB file back to `main`.
+
+Streamlit Community Cloud redeploys on push, so the dashboard picks up new data automatically.
+No secrets are needed for the crawl; the default `GITHUB_TOKEN` (with `contents: write`) is enough.
+
+> GitHub-hosted runners have US IPs. Blinkit served them fine in testing, but if a run starts
+> returning 403s consistently, switch to a self-hosted runner in India or run locally and push.
+
+---
+
+## Brand classification workflow
+
+- New brands seen in a crawl are auto-suggested from `config/brands_seed.yaml`
+  (Korean / Global / Local lists) and written to `data/brands.csv` with `confirmed=false`.
+- The **Brand Review** page lists unconfirmed brands; confirm or correct them there.
+- Confirmed rows are never overwritten by the seed logic. If a suggestion was wrong, just fix it
+  in the UI (or edit `brands.csv` directly and rebuild).
+
+**Persistence on Streamlit Community Cloud:** the app's filesystem is ephemeral, so edits made in
+the Brand Review page live only until the next redeploy *unless* you either (a) download the
+updated `brands.csv` from the page and commit it, or (b) add a `GITHUB_TOKEN` (fine-grained,
+*contents: write* on this repo) plus `GITHUB_REPO = "owner/name"` to the app's Streamlit secrets —
+then the page commits `brands.csv` to GitHub directly. Locally, edits are saved immediately.
+
+---
+
+## Deploying to Streamlit Community Cloud
+
+1. Push this repo to GitHub.
+2. New app → repo → branch `main` → main file `app/Home.py`.
+3. (Optional) Secrets: `GITHUB_TOKEN`, `GITHUB_REPO` for brand-review persistence.
+
+The app reads `data/blinkit_beauty.duckdb` from the repo; nothing else is required.

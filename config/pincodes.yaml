@@ -1,0 +1,51 @@
+# Delivery locations to crawl — 3-4 per metro, mixing dense residential and commercial areas.
+#
+# search_text is typed into Blinkit's "search delivery location" box and the first suggestion
+# is selected, so keep it something Google-Places-like ("<area>, <city> <pincode>").
+# The scraper records the lat/lon/locality Blinkit actually resolved, so you can verify each one
+# in the "Crawl health" section of the dashboard and tweak search_text if a pincode lands wrong.
+#
+# Set enabled: false to skip a location without deleting it. Add new ones anytime.
+
+pincodes:
+  # ---- Mumbai ----
+  - {pincode: "400001", city: Mumbai,    area: "Fort / South Mumbai",  search_text: "Fort, Mumbai 400001",            enabled: true}
+  - {pincode: "400050", city: Mumbai,    area: "Bandra West",          search_text: "Bandra West, Mumbai 400050",     enabled: true}
+  - {pincode: "400053", city: Mumbai,    area: "Andheri West",         search_text: "Andheri West, Mumbai 400053",    enabled: true}
+  - {pincode: "400076", city: Mumbai,    area: "Powai",                search_text: "Powai, Mumbai 400076",           enabled: true}
+
+  # ---- Delhi NCR ----
+  - {pincode: "110001", city: Delhi NCR, area: "Connaught Place",      search_text: "Connaught Place, New Delhi 110001", enabled: true}
+  - {pincode: "110016", city: Delhi NCR, area: "Hauz Khas / South Delhi", search_text: "Hauz Khas, New Delhi 110016",  enabled: true}
+  - {pincode: "110085", city: Delhi NCR, area: "Rohini",               search_text: "Rohini, Delhi 110085",           enabled: true}
+  - {pincode: "122002", city: Delhi NCR, area: "Gurgaon (DLF / Sec 14)", search_text: "DLF Phase 1, Gurugram 122002", enabled: true}
+
+  # ---- Bengaluru ----
+  - {pincode: "560001", city: Bengaluru, area: "MG Road / Central",    search_text: "MG Road, Bengaluru 560001",      enabled: true}
+  - {pincode: "560034", city: Bengaluru, area: "Koramangala",          search_text: "Koramangala, Bengaluru 560034",  enabled: true}
+  - {pincode: "560038", city: Bengaluru, area: "Indiranagar",          search_text: "Indiranagar, Bengaluru 560038",  enabled: true}
+  - {pincode: "560066", city: Bengaluru, area: "Whitefield",           search_text: "Whitefield, Bengaluru 560066",   enabled: true}
+
+  # ---- Chennai ----
+  - {pincode: "600004", city: Chennai,   area: "Mylapore",             search_text: "Mylapore, Chennai 600004",       enabled: true}
+  - {pincode: "600020", city: Chennai,   area: "Adyar",                search_text: "Adyar, Chennai 600020",          enabled: true}
+  - {pincode: "600040", city: Chennai,   area: "Anna Nagar",           search_text: "Anna Nagar, Chennai 600040",     enabled: true}
+  - {pincode: "600096", city: Chennai,   area: "Perungudi / OMR",      search_text: "Perungudi, Chennai 600096",      enabled: true}
+
+  # ---- Hyderabad ----
+  - {pincode: "500034", city: Hyderabad, area: "Banjara Hills",        search_text: "Banjara Hills, Hyderabad 500034", enabled: true}
+  - {pincode: "500081", city: Hyderabad, area: "Gachibowli / HITEC",   search_text: "Gachibowli, Hyderabad 500081",   enabled: true}
+  - {pincode: "500072", city: Hyderabad, area: "Kukatpally",           search_text: "Kukatpally, Hyderabad 500072",   enabled: true}
+  - {pincode: "500016", city: Hyderabad, area: "Begumpet / Secunderabad", search_text: "Begumpet, Hyderabad 500016",  enabled: true}
+
+  # ---- Kolkata ----
+  - {pincode: "700019", city: Kolkata,   area: "Ballygunge",           search_text: "Ballygunge, Kolkata 700019",     enabled: true}
+  - {pincode: "700029", city: Kolkata,   area: "Gariahat",             search_text: "Gariahat, Kolkata 700029",       enabled: true}
+  - {pincode: "700091", city: Kolkata,   area: "Salt Lake Sector V",   search_text: "Salt Lake Sector 5, Kolkata 700091", enabled: true}
+  - {pincode: "700157", city: Kolkata,   area: "New Town / Rajarhat",  search_text: "New Town, Kolkata 700157",       enabled: true}
+
+  # ---- Pune (optional, off by default) ----
+  - {pincode: "411001", city: Pune,      area: "Camp / Cantonment",    search_text: "Camp, Pune 411001",              enabled: false}
+  - {pincode: "411004", city: Pune,      area: "Deccan / Shivajinagar", search_text: "Deccan Gymkhana, Pune 411004",  enabled: false}
+  - {pincode: "411014", city: Pune,      area: "Viman Nagar",          search_text: "Viman Nagar, Pune 411014",       enabled: false}
+  - {pincode: "411057", city: Pune,      area: "Hinjewadi",            search_text: "Hinjewadi, Pune 411057",         enabled: false}

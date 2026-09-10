@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+logs/*.log
+data/raw/
+.DS_Store
+.streamlit/secrets.toml
+# DuckDB WAL / temp files (the .duckdb file itself IS committed — it is rebuilt from snapshots)
+*.duckdb.wal
+*.duckdb.tmp

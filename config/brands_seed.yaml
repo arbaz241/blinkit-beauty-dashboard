@@ -1,0 +1,347 @@
+# Brand classification seeds.
+#
+# These drive the *auto-suggestion* when a brand is first seen in scraped data. The suggestion is
+# written to data/brands.csv with confirmed=false; you confirm/correct it in the dashboard's
+# "Brand Review" page, and confirmed rows are never re-suggested.
+#
+# Matching is on a normalised key (lowercase, punctuation/whitespace stripped), so "Dr. Jart+"
+# and "Dr Jart" both hit. Anything not listed here is suggested as "Unclassified".
+
+focus_brand: Innisfree
+competitors:
+  - Laneige
+  - The Face Shop
+  - Etude House
+  - Etude
+
+korean:
+  - Innisfree
+  - Laneige
+  - The Face Shop
+  - Etude House
+  - Etude
+  - Sulwhasoo
+  - Mamonde
+  - Iope
+  - Hera
+  - Amorepacific
+  - COSRX
+  - Beauty of Joseon
+  - Skin1004
+  - Anua
+  - Round Lab
+  - Torriden
+  - Some By Mi
+  - Dr. Jart+
+  - Klairs
+  - Dear Klairs
+  - Benton
+  - Isntree
+  - Mediheal
+  - Holika Holika
+  - Nature Republic
+  - Banila Co
+  - Purito
+  - Heimish
+  - Peripera
+  - Rom&nd
+  - Romand
+  - Clio
+  - 3CE
+  - Belif
+  - Neogen
+  - Abib
+  - Numbuzin
+  - Mixsoon
+  - I'm From
+  - Tirtir
+  - Goodal
+  - Dr. Althea
+  - Manyo
+  - Ma:nyo
+  - Axis-Y
+  - Haruharu Wonder
+  - Jumiso
+  - Krave Beauty
+  - Pyunkang Yul
+  - Real Barrier
+  - The Saem
+  - Nacific
+  - Farmstay
+  - Frudia
+  - Dr. Ceuracle
+  - Aromatica
+  - Biodance
+  - Medicube
+  - VT Cosmetics
+  - Missha
+  - Tony Moly
+  - Tonymoly
+  - A'pieu
+  - Etude House
+  - Innisfree
+  - Sioris
+  - Aestura
+  - Centellian24
+  - Dr.G
+  - Sungboon Editor
+  - Celimax
+  - Illiyoon
+  - Dewytree
+  - Skinfood
+  - Secret Key
+  - It's Skin
+  - The History of Whoo
+  - Ohui
+  - Su:m37
+  - Laka
+  - Espoir
+  - Hince
+  - Wakemake
+  - Kaja
+  - Glow Recipe
+
+global:
+  # L'Oréal Group
+  - L'Oreal Paris
+  - L'Oréal Paris
+  - Loreal
+  - Maybelline
+  - Maybelline New York
+  - Garnier
+  - Lancome
+  - Lancôme
+  - Kiehl's
+  - NYX
+  - NYX Professional Makeup
+  - CeraVe
+  - La Roche-Posay
+  - Vichy
+  - Urban Decay
+  - YSL
+  - Skinceuticals
+  # Estée Lauder Companies
+  - Estee Lauder
+  - Estée Lauder
+  - Clinique
+  - MAC
+  - M.A.C
+  - Bobbi Brown
+  - The Ordinary
+  - Origins
+  - Too Faced
+  - Smashbox
+  - Glamglow
+  # P&G
+  - Olay
+  - Gillette
+  - SK-II
+  - Venus
+  # Unilever (global house brands; Indian-origin HUL brands like Lakme are under local)
+  - Dove
+  - Pond's
+  - Ponds
+  - Vaseline
+  - Simple
+  - Pears
+  - Nivea
+  - Eucerin
+  # Kenvue / J&J
+  - Neutrogena
+  - Clean & Clear
+  - Aveeno
+  # Others
+  - Shiseido
+  - NARS
+  - Rimmel
+  - Max Factor
+  - CoverGirl
+  - Revlon
+  - ColourPop
+  - e.l.f.
+  - ELF
+  - Wet n Wild
+  - Bioderma
+  - Cetaphil
+  - Avene
+  - Avène
+  - Nuxe
+  - The Body Shop
+  - Sephora Collection
+  - Huda Beauty
+  - Charlotte Tilbury
+  - Benefit
+  - Fenty Beauty
+  - Anastasia Beverly Hills
+  - Milani
+  - Physicians Formula
+  - Essence
+  - Catrice
+  - Bath & Body Works
+  - Elizabeth Arden
+  - Dermalogica
+  - Paula's Choice
+  - Drunk Elephant
+  - Murad
+  - Dr. Dennis Gross
+  - Tatcha
+  - Sol de Janeiro
+  - Rare Beauty
+  - Bio-Oil
+  - Himalaya   # note: Himalaya Wellness is Indian; moved to local below — kept here commented for history
+  - Burt's Bees
+  - Palmer's
+  - Sebamed
+  - Uriage
+  - Embryolisse
+  - Bioré
+  - Biore
+  - Hada Labo
+  - Kose
+  - Kao
+  - Shu Uemura
+  - Yves Rocher
+  - Herbal Essences
+  - Head & Shoulders
+
+local:
+  - Lakme
+  - Lakmé
+  - Himalaya
+  - Mamaearth
+  - Minimalist
+  - Dot & Key
+  - Plum
+  - Sugar
+  - Sugar Cosmetics
+  - MARS
+  - MARS Cosmetics
+  - Swiss Beauty
+  - Faces Canada
+  - Colorbar
+  - Lotus Herbals
+  - Lotus
+  - Biotique
+  - Forest Essentials
+  - mCaffeine
+  - Foxtale
+  - Deconstruct
+  - Aqualogica
+  - Re'equil
+  - Re' Equil
+  - Hyphen
+  - Urban Yog
+  - WOW Skin Science
+  - Pilgrim
+  - The Derma Co
+  - Dr. Sheth's
+  - Bella Vita
+  - Bella Vita Organic
+  - Renee
+  - RENEE
+  - Insight
+  - Insight Cosmetics
+  - Blue Heaven
+  - Nykaa
+  - Nykaa Cosmetics
+  - Nykaa Naturals
+  - Kay Beauty
+  - Just Herbs
+  - Earth Rhythm
+  - Fixderma
+  - Conscious Chemist
+  - Chemist at Play
+  - Be Bodywise
+  - Sanfe
+  - Bombay Shaving Company
+  - Beardo
+  - Ustraa
+  - Man Matters
+  - LoveChild Masaba
+  - LoveChild
+  - Daughter Earth
+  - Typsy Beauty
+  - Praush
+  - Kama Ayurveda
+  - Khadi Natural
+  - Khadi
+  - Soulflower
+  - Vilvah
+  - Juicy Chemistry
+  - Arata
+  - Dr. Batra's
+  - Cipla
+  - Glenmark
+  - Bioderma India
+  - Boroplus
+  - Emami
+  - Fair & Lovely
+  - Glow & Lovely
+  - Ayumcure
+  - Ayumcure
+  - Lakme Absolute
+  - Elle 18
+  - Streax
+  - Livon
+  - Parachute
+  - Joy
+  - VLCC
+  - Shahnaz Husain
+  - Aroma Magic
+  - Jovees
+  - Roop Mantra
+  - Patanjali
+  - Dabur
+  - Vicco
+  - Cetaphil India
+  - Neemli Naturals
+  - Sanctus
+  - Skin Elements
+  - Dermafique
+  - Kimirica
+  - Tata Harper   # actually US; remove if seen
+  - Coloressence
+  - Miss Claire
+  - Half N Half
+  - Ronzag
+  - Matt Look
+  - Mattlook
+  - Iba
+  - Iba Cosmetics
+  - Soultree
+  - Ustraa
+  - Sirona
+  - Carmesi
+  - Pee Safe
+  - Purplle
+  - Good Vibes
+  - Stay Quirky
+  - Bare Anatomy
+  - Chik
+  - Sunscoop
+  - Aloe Veda
+  - Aqualogica
+  - Cheryl's Cosmeceuticals
+  - O3+
+  - Olivia
+  - Zayn & Myza
+  - The Moms Co
+  - Mom's Co
+  - Charmis
+  - Fiama
+  - Santoor
+  - Nivea India
+  - Spinz
+  - Layer'r
+  - Engage
+  - Wild Stone
+  - Yardley
+  - Cinthol
+  - Mysore Sandal
+  - Medimix
+  - Boro Plus
+  - Itch Guard
+  - Moha
+  - Mantra
+  - Wow
+  - Innisfree India   # defensive; normalises to a distinct key

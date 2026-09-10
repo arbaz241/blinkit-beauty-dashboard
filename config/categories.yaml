@@ -1,0 +1,53 @@
+# Blinkit category tree for the beauty scope, captured from /v1/layout/tag_collections.
+#
+# Blinkit's "Beauty & Personal Care" L0 has two collections we care about:
+#   231354  Skin & Face          -> our "Skincare"
+#   104848  Beauty & Cosmetics   -> our "Makeup"
+# Each collection has "groupings" (the sub-category tiles on the category page). A grouping is
+# crawled by POSTing /v1/layout/listing_widgets with {collection_group_id, collection_uuid} and
+# following pagination.next_url. Results come back in Blinkit's "bestsellers" sort, so the
+# position of an item in the crawl is our best-seller proxy.
+#
+# enabled: false excludes a grouping from the crawl. Default-off groupings are ones that are not
+# really skincare/makeup (razors, bangles, gift cards, tools) even though Blinkit files them here.
+# If Blinkit renames/re-IDs groupings, refresh this file with:  python scrape.py --discover-categories
+
+collections:
+  - top_category: Skincare
+    collection_id: 231354
+    collection_name: "Skin & Face"
+    collection_uuid: "OTg3NjU0MzIxMjM0NTMzNDI="
+    collection_tags:
+      - {Id: 14651, Name: hpc_combined_grid}
+      - {Id: 14684, Name: hpc_beauty_and_care}
+    groupings:
+      - {group_id: 12020,  name: "Sunscreen",                  l1_cat_ids: [752],   enabled: true}
+      - {group_id: 204868, name: "Face Cleaning",              l1_cat_ids: [1117],  enabled: true}
+      - {group_id: 206263, name: "Face Oil, Serum & Essence",  l1_cat_ids: [6938],  enabled: true}
+      - {group_id: 204873, name: "Face Moisturisers",          l1_cat_ids: [164],   enabled: true}
+      - {group_id: 204875, name: "Body Lotions & Oils",        l1_cat_ids: [6871],  enabled: true}
+      - {group_id: 204900, name: "Lip & Eye Care",             l1_cat_ids: [30],    enabled: true}
+      - {group_id: 887330, name: "Face Masks & Packs",         l1_cat_ids: [10663], enabled: true}
+      - {group_id: 887331, name: "Toners & Mists",             l1_cat_ids: [10696], enabled: true}
+      - {group_id: 887332, name: "Acne & Blackhead Fixers",    l1_cat_ids: [10697], enabled: true}
+      - {group_id: 204902, name: "Men's Grooming",             l1_cat_ids: [692],   enabled: false}
+      - {group_id: 204891, name: "Women's Grooming",           l1_cat_ids: [1893],  enabled: false}
+
+  - top_category: Makeup
+    collection_id: 104848
+    collection_name: "Beauty & Cosmetics"
+    collection_uuid: "OTg3NjU0MzIxMjM0NTMzNDE="
+    collection_tags:
+      - {Id: 14684, Name: hpc_beauty_and_care}
+    groupings:
+      - {group_id: 11672,  name: "Lipstick & Gloss",           l1_cat_ids: [2411],  enabled: true}
+      - {group_id: 11671,  name: "Cleansers & Toners",         l1_cat_ids: [2410],  enabled: true}
+      - {group_id: 11675,  name: "Foundation & Compact",       l1_cat_ids: [2414],  enabled: true}
+      - {group_id: 22980,  name: "Blush & Highlighter",        l1_cat_ids: [2734],  enabled: true}
+      - {group_id: 11676,  name: "Primer & Concealer",         l1_cat_ids: [2415],  enabled: true}
+      - {group_id: 11673,  name: "Kajal & Eyeliners",          l1_cat_ids: [2412],  enabled: true}
+      - {group_id: 11674,  name: "Nail Paints & Accessories",  l1_cat_ids: [2413],  enabled: true}
+      - {group_id: 11911,  name: "Bindi, Bangles & Others",    l1_cat_ids: [920],   enabled: false}
+      - {group_id: 13642,  name: "Beauty Accessories",         l1_cat_ids: [2470],  enabled: false}
+      - {group_id: 628082, name: "Bath & Beauty Gifts",        l1_cat_ids: [3074],  enabled: false}
+      - {group_id: 128500, name: "Beauty E-Card",              l1_cat_ids: [5738],  enabled: false}

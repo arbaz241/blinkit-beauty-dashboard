@@ -1,0 +1,78 @@
+name: Weekly Blinkit beauty crawl
+
+on:
+  schedule:
+    # Every Monday 03:30 UTC (09:00 IST). Blinkit stores are quiet; GitHub cron can drift by up to ~15 min.
+    - cron: "30 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      pincodes:
+        description: "Comma-separated subset of pincodes (blank = all enabled)"
+        required: false
+        default: ""
+      groups:
+        description: "Comma-separated grouping names/ids (blank = all enabled)"
+        required: false
+        default: ""
+      max_pages:
+        description: "Max pages per grouping"
+        required: false
+        default: "80"
+
+concurrency:
+  group: blinkit-crawl
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Crawl
+        env:
+          PINCODES: ${{ github.event.inputs.pincodes }}
+          GROUPS: ${{ github.event.inputs.groups }}
+          MAX_PAGES: ${{ github.event.inputs.max_pages || '80' }}
+        run: |
+          args=""
+          [ -n "$PINCODES" ] && args="$args --pincodes $PINCODES"
+          [ -n "$GROUPS" ] && args="$args --groups $GROUPS"
+          python scrape.py --max-pages "$MAX_PAGES" $args
+
+      - name: Rebuild DuckDB from all snapshots
+        run: python -m db.load --rebuild
+
+      - name: Upload crawl log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrape-logs-${{ github.run_id }}
+          path: logs/*.log
+          retention-days: 30
+
+      - name: Commit refreshed data
+        run: |
+          git config user.name "blinkit-crawler[bot]"
+          git config user.email "blinkit-crawler@users.noreply.github.com"
+          git add data/snapshots/*.parquet data/snapshots/*_runlog.json data/brands.csv data/blinkit_beauty.duckdb
+          if git diff --cached --quiet; then
+            echo "No data changes to commit"
+          else
+            git commit -m "data: weekly crawl $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          fi
