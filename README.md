@@ -93,7 +93,8 @@ Three definitions do a lot of work, and all three are forced by how Blinkit's da
 
 *Visibility* and *best-seller score* are proxies: Blinkit publishes no sales volume. They are built from
 position in Blinkit's own bestsellers-sorted listing — which does track demand (position correlates
-−0.43 with rating count) — plus rating volume and pincode coverage. The UI labels them as proxies everywhere.
+−0.39 to −0.63 with review count in every one of the 16 sub-categories) — plus rating volume
+and pincode coverage. The UI labels them as proxies everywhere.
 
 There is deliberately **no "in stock only" filter**: availability is a headline metric, and filtering
 the rows it is computed from would pin it at 100%.
