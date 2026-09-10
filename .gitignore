@@ -10,3 +10,6 @@ data/raw/
 # DuckDB WAL / temp files (the .duckdb file itself IS committed — it is rebuilt from snapshots)
 *.duckdb.wal
 *.duckdb.tmp
+
+# Superseded part-snapshots kept locally after db.merge_runs folded them into the base run.
+data/snapshots/merged/
