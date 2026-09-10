@@ -52,6 +52,57 @@ class LocationNotServiceable(BlinkitError):
     pass
 
 
+# Chromium net errors that mean "the machine lost its connection", as opposed to "Blinkit said no".
+# These deserve a wait, not a failure: a transient drop otherwise burns through every remaining
+# pincode in seconds (each fails in ~8s), destroying a multi-hour crawl.
+NETWORK_ERRORS = (
+    "ERR_INTERNET_DISCONNECTED", "ERR_NAME_NOT_RESOLVED", "ERR_NETWORK_CHANGED",
+    "ERR_CONNECTION_RESET", "ERR_CONNECTION_TIMED_OUT", "ERR_CONNECTION_CLOSED",
+    "ERR_ADDRESS_UNREACHABLE", "ERR_PROXY_CONNECTION_FAILED", "ERR_NETWORK_IO_SUSPENDED",
+)
+
+
+def is_network_error(err) -> bool:
+    s = str(err or "")
+    return any(tok in s for tok in NETWORK_ERRORS)
+
+
+# TCP probes rather than HTTPS: we only need to know the connection is alive, and a raw socket
+# avoids depending on Python's CA bundle (a python.org macOS install often ships without one, which
+# makes every urllib HTTPS call fail regardless of connectivity). The last entry also proves DNS works.
+NETWORK_PROBES = (("1.1.1.1", 443), ("8.8.8.8", 53), ("blinkit.com", 443))
+
+
+def network_up(probes=NETWORK_PROBES, timeout: float = 5.0) -> bool:
+    import socket
+
+    for host, port in probes:
+        try:
+            with socket.create_connection((host, port), timeout=timeout):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def wait_for_network(timeout: float = 1800.0, interval: float = 15.0) -> bool:
+    """Block until the network is usable again. True if it came back, False on timeout."""
+    if network_up():
+        return True
+    deadline = time.time() + timeout
+    attempt = 0
+    while time.time() < deadline:
+        attempt += 1
+        time.sleep(min(interval, max(deadline - time.time(), 0)))
+        if network_up():
+            log.info("network is back after %d check(s)", attempt)
+            return True
+        if attempt == 1 or attempt % 4 == 0:
+            log.warning("network still unreachable (%ds left before giving up)",
+                        max(int(deadline - time.time()), 0))
+    return False
+
+
 @dataclass
 class ResolvedLocation:
     pincode: str

@@ -25,7 +25,7 @@ import pandas as pd
 import yaml
 
 from db import CONFIG_DIR, SNAPSHOT_DIR
-from scraper.client import BlinkitBrowser
+from scraper.client import BlinkitBrowser, is_network_error, wait_for_network
 from scraper.crawl import crawl_pincode, enabled_groupings
 
 ROOT = Path(__file__).resolve().parent
@@ -54,6 +54,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--headed", action="store_true")
     ap.add_argument("--no-load", action="store_true", help="write parquet only, skip DuckDB load")
     ap.add_argument("--run-id", help="override run id (default: UTC timestamp)")
+    ap.add_argument("--network-wait", type=float, default=1800,
+                    help="seconds to wait for the connection to return before giving up (default 1800)")
     args = ap.parse_args(argv)
 
     run_id = args.run_id or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")
@@ -75,13 +77,34 @@ def main(argv: list[str] | None = None) -> int:
     all_rows: list[dict] = []
     pin_logs = []
     with BlinkitBrowser(headless=not args.headed) as browser:
+        aborted = False
         for i, p in enumerate(pin_cfg, 1):
             log.info("[%d/%d] pincode %s (%s, %s)", i, len(pin_cfg), p["pincode"], p.get("city"), p.get("area"))
             rows, plog = crawl_pincode(browser, p, groupings, run_id=run_id, max_pages=args.max_pages)
+
+            # A dropped connection is not a failed pincode. Without this, one outage marks every
+            # remaining pincode failed within seconds and throws away hours of crawling.
+            if plog.status != "ok" and is_network_error(plog.error):
+                log.warning("pincode %s failed on a network error — pausing the crawl", p["pincode"])
+                if wait_for_network(args.network_wait):
+                    log.info("connection restored, retrying pincode %s", p["pincode"])
+                    rows, plog = crawl_pincode(browser, p, groupings, run_id=run_id, max_pages=args.max_pages)
+                else:
+                    log.error("no connection after %.0fs — stopping so the remaining pincodes stay "
+                              "un-attempted rather than being recorded as failures", args.network_wait)
+                    all_rows.extend(rows)
+                    pin_logs.append(plog)
+                    aborted = True
+                    break
+
             all_rows.extend(rows)
             pin_logs.append(plog)
             log.info("pincode %s: %s, %d rows, %d requests (%d retries)", p["pincode"], plog.status, len(rows), plog.requests, plog.retries)
             time.sleep(2)
+        if aborted:
+            missed = [q["pincode"] for q in pin_cfg[len(pin_logs):]]
+            if missed:
+                log.error("not attempted: %s", ",".join(missed))
     finished = datetime.now(timezone.utc)
 
     units = [u for pl in pin_logs for u in pl.units]
