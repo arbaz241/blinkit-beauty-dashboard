@@ -174,15 +174,18 @@ def main(argv: list[str] | None = None) -> int:
     # pincodes (network drop, IP block) still exits 0, and the weekly GitHub Action commits
     # truncated data with a green tick — the diff pages then read the missing pincodes as mass
     # delistings. Anything worse than a couple of stragglers fails the run.
-    failed = run_log["pincodes_failed"]
+    # "partial" counts as incomplete too: a pincode missing 7 of 16 sub-categories will read as
+    # those categories being empty there, which is worse than an obvious failure.
+    incomplete = [pl for pl in pin_logs if pl.status != "ok"]
+    failed = len(incomplete)
     if failed:
         share = failed / max(run_log["pincodes_total"], 1)
-        log.error("%d of %d pincodes failed (%.0f%%). Failed: %s", failed, run_log["pincodes_total"],
-                  share * 100, ", ".join(pl.pincode for pl in pin_logs if pl.status != "ok"))
+        log.error("%d of %d pincodes incomplete (%.0f%%): %s", failed, run_log["pincodes_total"],
+                  share * 100, ", ".join(f"{pl.pincode}[{pl.status}]" for pl in incomplete))
         if share > 0.1:
             log.error("Treating this run as FAILED. Re-crawl the missing pincodes with:")
             log.error("    python scrape.py --pincodes %s --run-id %s-part2 --no-load",
-                      ",".join(pl.pincode for pl in pin_logs if pl.status != "ok"), run_id)
+                      ",".join(pl.pincode for pl in incomplete), run_id)
             return 2
     return 0
 

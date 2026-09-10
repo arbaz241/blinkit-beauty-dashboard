@@ -155,7 +155,19 @@ def crawl_pincode(browser: BlinkitBrowser, pin_cfg: dict[str, Any], groupings: l
                      plog.pincode, unit.subcategory, unit.status, unit.pages, unit.primary_cards, unit.rows,
                      unit.expected_items, unit.seconds, f" err={unit.error}" if unit.error else "")
             time.sleep(random.uniform(*delay_between_groups))
-        plog.status = "ok" if any(u.status in ("ok", "partial") for u in plog.units) else "failed"
+        # A pincode is only "ok" when every sub-category came back. Marking it ok because *some*
+        # units succeeded hides the gap: a sub-category that failed to load is indistinguishable
+        # from one where nothing is listed, so the dashboard would report a real category as empty.
+        n_ok = sum(u.status == "ok" for u in plog.units)
+        if n_ok == len(plog.units) and plog.units:
+            plog.status = "ok"
+        elif n_ok:
+            plog.status = "partial"
+            failed_units = [u.subcategory for u in plog.units if u.status == "failed"]
+            plog.error = (plog.error or "") + f" incomplete: {len(failed_units)} sub-categories failed" \
+                                              f" ({', '.join(failed_units[:6])})"
+        else:
+            plog.status = "failed"
     finally:
         plog.requests = session.stats.requests
         plog.retries = session.stats.retries
