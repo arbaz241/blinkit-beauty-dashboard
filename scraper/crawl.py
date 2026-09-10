@@ -84,8 +84,14 @@ def crawl_grouping(session: BlinkitSession, grouping: dict[str, Any], *, max_pag
             collection_uuid=grouping["collection_uuid"], group_id=grouping["group_id"], max_pages=max_pages,
         ):
             unit.pages += 1
-            if unit.expected_items is None:
-                unit.expected_items = total_items(payload)
+            # Keep the *latest* total, not the first. Blinkit's opening estimate is inflated and it
+            # revises it downward mid-list (Lipstick & Gloss: 345 on page 1, 308 from page 13, and
+            # exactly 308 cards served). Benchmarking against page 1 made complete crawls look
+            # 10-17% short. The final page reports a stale figure, so ignore it once we're past p1.
+            t = total_items(payload)
+            nxt = ((payload.get("response") or {}).get("pagination") or {}).get("next_url")
+            if t is not None and (unit.expected_items is None or nxt):
+                unit.expected_items = t
             n_primary = count_primary_cards(payload)
             page_rows = parse_listing_page(payload, page_index=page_index, position_offset=primary)
             primary += n_primary
