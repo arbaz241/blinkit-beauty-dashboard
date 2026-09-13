@@ -1,9 +1,10 @@
 name: Weekly Blinkit beauty crawl
 
 on:
-  schedule:
-    # Every Monday 03:30 UTC (09:00 IST). Blinkit stores are quiet; GitHub cron can drift by up to ~15 min.
-    - cron: "30 3 * * 1"
+  # Schedule paused 2026-09-13: Blinkit's bot protection blocked the IP the first crawl ran from.
+  # Runs only when triggered by hand until data access is sorted out. To resume, restore:
+  #   schedule:
+  #     - cron: "30 3 * * 1"   # Every Monday 03:30 UTC (09:00 IST)
   workflow_dispatch:
     inputs:
       pincodes:
