@@ -24,9 +24,13 @@ from __future__ import annotations
 
 import math
 import re
+import time
 
 import numpy as np
 import pandas as pd
+
+# When this module was imported. Pages compare it with the file's mtime to reload after a deploy.
+LOADED_AT = time.time()
 
 BASE = """
 WITH L AS (
