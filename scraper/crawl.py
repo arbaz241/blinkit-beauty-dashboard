@@ -70,7 +70,15 @@ def enabled_groupings(categories_cfg: dict, only: set[str] | None = None) -> lis
     return out
 
 
-def crawl_grouping(session: BlinkitSession, grouping: dict[str, Any], *, max_pages: int) -> tuple[list[dict], UnitLog]:
+# Cards vs Blinkit's reported item count is not 1:1 — its total counts shades and sizes that collapse
+# into one card, so a complete Lipstick crawl lands near 83%. Calibrated on the 2026-09-09 crawl (384
+# units, worst genuine unit 68.5%) against the truncated 2026-09-23 run (units at 8-60%): 0.65 flags
+# every truncated unit and none of the good ones.
+MIN_CAPTURE = 0.65
+
+
+def crawl_grouping(session: BlinkitSession, grouping: dict[str, Any], *, max_pages: int,
+                   min_capture: float = MIN_CAPTURE) -> tuple[list[dict], UnitLog]:
     loc = session.location
     assert loc is not None
     unit = UnitLog(pincode=loc.pincode, city="", top_category=grouping["top_category"],
@@ -105,8 +113,14 @@ def crawl_grouping(session: BlinkitSession, grouping: dict[str, Any], *, max_pag
                 break
         unit.primary_cards = primary
         unit.rows = len(rows)
-        if unit.expected_items and primary < unit.expected_items * 0.9 and unit.pages >= max_pages:
+        # Blinkit sometimes stops paginating mid-collection: it drops next_url while its own reported
+        # total is far higher (seen 2026-09-23: 15 cards served of 182 reported, in two pages). That is
+        # a truncated crawl, not a short shelf. This used to require pages >= max_pages to count as
+        # partial, so silently truncated units were recorded as complete and read as mass delistings.
+        if unit.expected_items and primary < unit.expected_items * min_capture:
             unit.status = "partial"
+            unit.error = unit.error or (f"truncated: captured {primary} of {unit.expected_items} items "
+                                        f"in {unit.pages} pages")
         else:
             unit.status = "ok"
     except BlinkitError as e:
@@ -119,10 +133,12 @@ def crawl_grouping(session: BlinkitSession, grouping: dict[str, Any], *, max_pag
 
 
 def crawl_pincode(browser: BlinkitBrowser, pin_cfg: dict[str, Any], groupings: list[dict[str, Any]], *,
-                  run_id: str, max_pages: int, delay_between_groups: tuple[float, float] = (3.0, 6.0)) -> tuple[list[dict], PincodeLog]:
+                  run_id: str, max_pages: int, delay_between_groups: tuple[float, float] = (3.0, 6.0),
+                  page_delay: tuple[float, float] | None = None, min_capture: float = MIN_CAPTURE,
+                  truncated_retry_delay: tuple[float, float] = (20.0, 40.0)) -> tuple[list[dict], PincodeLog]:
     plog = PincodeLog(pincode=str(pin_cfg["pincode"]), city=pin_cfg.get("city", ""), area=pin_cfg.get("area", ""))
     all_rows: list[dict] = []
-    session = browser.session()
+    session = browser.session(delay_range=page_delay) if page_delay else browser.session()
     try:
         try:
             loc = session.set_location(plog.pincode, pin_cfg.get("search_text"))
@@ -134,7 +150,16 @@ def crawl_pincode(browser: BlinkitBrowser, pin_cfg: dict[str, Any], groupings: l
         plog.lat, plog.lon, plog.locality, plog.merchant_id = loc.lat, loc.lon, loc.locality, loc.merchant_id
 
         for g in groupings:
-            rows, unit = crawl_grouping(session, g, max_pages=max_pages)
+            rows, unit = crawl_grouping(session, g, max_pages=max_pages, min_capture=min_capture)
+            # A truncation is usually Blinkit throttling this session, not an empty shelf, and it
+            # clears after a pause. One slower retry recovers most of them; the better result wins.
+            if unit.status == "partial" and unit.error and unit.error.startswith("truncated"):
+                log.warning("  %s / %s: %s — pausing, then retrying once", plog.pincode, unit.subcategory, unit.error)
+                time.sleep(random.uniform(*truncated_retry_delay))
+                rows2, unit2 = crawl_grouping(session, g, max_pages=max_pages, min_capture=min_capture)
+                if unit2.primary_cards > unit.primary_cards:
+                    rows, unit = rows2, unit2
+                    unit.error = (unit.error + " (best of 2 attempts)") if unit.error else "recovered on retry"
             unit.city = plog.city
             crawled_at = datetime.now(timezone.utc)
             for r in rows:
@@ -165,13 +190,17 @@ def crawl_pincode(browser: BlinkitBrowser, pin_cfg: dict[str, Any], groupings: l
         # units succeeded hides the gap: a sub-category that failed to load is indistinguishable
         # from one where nothing is listed, so the dashboard would report a real category as empty.
         n_ok = sum(u.status == "ok" for u in plog.units)
-        if n_ok == len(plog.units) and plog.units:
+        n_failed = sum(u.status == "failed" for u in plog.units)
+        if plog.units and n_ok == len(plog.units):
             plog.status = "ok"
-        elif n_ok:
+        elif plog.units and n_failed < len(plog.units):
+            # Some sub-categories came back short or empty, but this store still yielded data.
+            # "failed" is reserved for a store we got nothing usable from — previously a store whose
+            # units were all partial was recorded as a total failure and its rows written off.
             plog.status = "partial"
-            failed_units = [u.subcategory for u in plog.units if u.status == "failed"]
-            plog.error = (plog.error or "") + f" incomplete: {len(failed_units)} sub-categories failed" \
-                                              f" ({', '.join(failed_units[:6])})"
+            bad = [u.subcategory for u in plog.units if u.status != "ok"]
+            plog.error = ((plog.error or "") + f" incomplete: {len(bad)} of {len(plog.units)} sub-categories "
+                                               f"short or failed ({', '.join(bad[:6])})").strip()
         else:
             plog.status = "failed"
     finally:

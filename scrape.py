@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import random
 import sys
 import time
 from dataclasses import asdict
@@ -26,7 +27,7 @@ import yaml
 
 from db import CONFIG_DIR, SNAPSHOT_DIR
 from scraper.client import BlinkitBrowser, is_network_error, wait_for_network
-from scraper.crawl import crawl_pincode, enabled_groupings
+from scraper.crawl import MIN_CAPTURE, crawl_pincode, enabled_groupings
 
 ROOT = Path(__file__).resolve().parent
 LOG_DIR = ROOT / "logs"
@@ -56,7 +57,24 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--run-id", help="override run id (default: UTC timestamp)")
     ap.add_argument("--network-wait", type=float, default=1800,
                     help="seconds to wait for the connection to return before giving up (default 1800)")
+    ap.add_argument("--min-capture", type=float, default=MIN_CAPTURE,
+                    help=f"mark a sub-category partial below this share of Blinkit's reported item "
+                         f"count (default {MIN_CAPTURE})")
+    ap.add_argument("--page-delay", default="0.8,2.0", help="seconds between listing pages, 'lo,hi'")
+    ap.add_argument("--group-delay", default="3,6", help="seconds between sub-categories, 'lo,hi'")
+    ap.add_argument("--pincode-delay", default="2,2", help="seconds between pincodes, 'lo,hi'")
+    ap.add_argument("--slow", action="store_true",
+                    help="gentler pacing (pages 2.5-5s, sub-categories 8-15s, pincodes 20-40s). Use when "
+                         "Blinkit starts truncating collections part-way through a run")
     args = ap.parse_args(argv)
+
+    def _range(spec: str) -> tuple[float, float]:
+        lo, _, hi = spec.partition(",")
+        return float(lo), float(hi or lo)
+
+    page_delay, group_delay, pincode_delay = _range(args.page_delay), _range(args.group_delay), _range(args.pincode_delay)
+    if args.slow:
+        page_delay, group_delay, pincode_delay = (2.5, 5.0), (8.0, 15.0), (20.0, 40.0)
 
     run_id = args.run_id or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")
     setup_logging(run_id)
@@ -80,7 +98,9 @@ def main(argv: list[str] | None = None) -> int:
         aborted = False
         for i, p in enumerate(pin_cfg, 1):
             log.info("[%d/%d] pincode %s (%s, %s)", i, len(pin_cfg), p["pincode"], p.get("city"), p.get("area"))
-            rows, plog = crawl_pincode(browser, p, groupings, run_id=run_id, max_pages=args.max_pages)
+            rows, plog = crawl_pincode(browser, p, groupings, run_id=run_id, max_pages=args.max_pages,
+                                       delay_between_groups=group_delay, page_delay=page_delay,
+                                       min_capture=args.min_capture)
 
             # A dropped connection is not a failed pincode. Without this, one outage marks every
             # remaining pincode failed within seconds and throws away hours of crawling.
@@ -88,7 +108,9 @@ def main(argv: list[str] | None = None) -> int:
                 log.warning("pincode %s failed on a network error — pausing the crawl", p["pincode"])
                 if wait_for_network(args.network_wait):
                     log.info("connection restored, retrying pincode %s", p["pincode"])
-                    rows, plog = crawl_pincode(browser, p, groupings, run_id=run_id, max_pages=args.max_pages)
+                    rows, plog = crawl_pincode(browser, p, groupings, run_id=run_id, max_pages=args.max_pages,
+                                       delay_between_groups=group_delay, page_delay=page_delay,
+                                       min_capture=args.min_capture)
                 else:
                     log.error("no connection after %.0fs — stopping so the remaining pincodes stay "
                               "un-attempted rather than being recorded as failures", args.network_wait)
@@ -100,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
             all_rows.extend(rows)
             pin_logs.append(plog)
             log.info("pincode %s: %s, %d rows, %d requests (%d retries)", p["pincode"], plog.status, len(rows), plog.requests, plog.retries)
-            time.sleep(2)
+            time.sleep(random.uniform(*pincode_delay))
         if aborted:
             missed = [q["pincode"] for q in pin_cfg[len(pin_logs):]]
             if missed:
@@ -144,8 +166,12 @@ def main(argv: list[str] | None = None) -> int:
              run_log["units_failed"], run_log["rows"], run_log["requests"], run_log["retries"],
              (finished - started).total_seconds())
     for pl in pin_logs:
-        if pl.status != "ok":
+        if pl.status == "failed":
             log.error("FAILED pincode %s: %s", pl.pincode, pl.error)
+        elif pl.status != "ok":
+            # A store with short sub-categories still yielded rows; calling that FAILED contradicts
+            # the summary line above it and hides which stores actually returned nothing.
+            log.warning("PARTIAL pincode %s: %s", pl.pincode, pl.error)
         for u in pl.units:
             if u.status != "ok":
                 log.warning("%s unit %s/%s: %s %s", u.status.upper(), pl.pincode, u.subcategory, u.error or "", f"({u.rows} rows)")

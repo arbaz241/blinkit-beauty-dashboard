@@ -112,9 +112,20 @@ def trust(ctx: Ctx) -> dict:
                       GROUP BY 1, 2, 3 HAVING count(*) > 1)""")["n"]
     uncls = ctx.one("""SELECT sum((cls = 'Unclassified')::int) * 100.0 / count(*) AS pct,
                               count(DISTINCT brand_key) FILTER (WHERE cls = 'Unclassified') AS n FROM C""")
+    # Blinkit can stop paginating mid-collection and still look like a finished crawl. Its reported
+    # total counts shades and sizes that collapse into one card, so a complete crawl lands well under
+    # 100%; below 65% of that total the unit was truncated (calibrated in scraper/crawl.py).
+    cap = ctx.one("""
+        SELECT count(*) AS units, count(*) FILTER (WHERE cards < says * 0.65) AS truncated,
+               sum(cards) AS cards, sum(says) AS says
+        FROM (SELECT pincode, subcategory, count(*) FILTER (WHERE NOT is_variant) AS cards,
+                     max(subcategory_total) AS says
+              FROM L GROUP BY 1, 2) WHERE says > 0""")
     full_grid = bool((grid["s"] == grid["s"].max()).all()) if len(grid) else False
     checks = [
         ("Every pincode × sub-category crawled", full_grid, f"{int(s.pincodes)} × {int(s.subcats)}"),
+        ("No sub-category truncated mid-crawl", int(cap.truncated) == 0,
+         f"{int(cap.truncated)} of {int(cap.units)} units"),
         ("Every pincode is a distinct dark store", int(s.stores) == int(s.pincodes), f"{int(s.stores)} stores"),
         ("No duplicate listings", int(dups) == 0, f"{int(dups)} duplicates"),
         ("Prices valid (> 0, never above MRP)", int(s.bad_price) + int(s.price_over_mrp) == 0,
